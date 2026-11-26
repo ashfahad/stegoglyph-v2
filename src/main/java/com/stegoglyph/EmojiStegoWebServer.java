@@ -118,8 +118,9 @@ public class EmojiStegoWebServer {
     }
 
     private void handleRoot(HttpExchange exchange) throws IOException {
+        boolean slotAcquired = false;
         try {
-            if (!acquireSlotOrOverload(exchange)) {
+            if (!(slotAcquired = acquireSlotOrOverload(exchange))) {
                 return;
             }
             if (!checkRateLimit(exchange)) {
@@ -135,7 +136,7 @@ public class EmojiStegoWebServer {
                 sendError(exchange, 404, "Not Found.");
                 return;
             }
-            byte[] htmlBytes = buildSingleSourceHtml().getBytes(StandardCharsets.UTF_8);
+            byte[] htmlBytes = loadWebUi();
             Headers headers = exchange.getResponseHeaders();
             applyCommonHeaders(exchange, headers, "text/html; charset=UTF-8");
             if ("HEAD".equals(method)) {
@@ -147,14 +148,17 @@ public class EmojiStegoWebServer {
                 }
             }
         } finally {
-            activeRequestSlots.release();
+            if (slotAcquired) {
+                activeRequestSlots.release();
+            }
             exchange.close();
         }
     }
 
     private void handleHealth(HttpExchange exchange) throws IOException {
+        boolean slotAcquired = false;
         try {
-            if (!acquireSlotOrOverload(exchange)) {
+            if (!(slotAcquired = acquireSlotOrOverload(exchange))) {
                 return;
             }
             if (!checkRateLimit(exchange)) {
@@ -176,14 +180,17 @@ public class EmojiStegoWebServer {
                 }
             }
         } finally {
-            activeRequestSlots.release();
+            if (slotAcquired) {
+                activeRequestSlots.release();
+            }
             exchange.close();
         }
     }
 
     private void handleEncode(HttpExchange exchange) throws IOException {
+        boolean slotAcquired = false;
         try {
-            if (!acquireSlotOrOverload(exchange)) {
+            if (!(slotAcquired = acquireSlotOrOverload(exchange))) {
                 return;
             }
             if (!checkRateLimit(exchange)) {
@@ -226,14 +233,17 @@ public class EmojiStegoWebServer {
                 sendError(exchange, 400, ex.getMessage());
             }
         } finally {
-            activeRequestSlots.release();
+            if (slotAcquired) {
+                activeRequestSlots.release();
+            }
             exchange.close();
         }
     }
 
     private void handleDecode(HttpExchange exchange) throws IOException {
+        boolean slotAcquired = false;
         try {
-            if (!acquireSlotOrOverload(exchange)) {
+            if (!(slotAcquired = acquireSlotOrOverload(exchange))) {
                 return;
             }
             if (!checkRateLimit(exchange)) {
@@ -275,7 +285,9 @@ public class EmojiStegoWebServer {
                 sendError(exchange, 400, ex.getMessage());
             }
         } finally {
-            activeRequestSlots.release();
+            if (slotAcquired) {
+                activeRequestSlots.release();
+            }
             exchange.close();
         }
     }
@@ -402,7 +414,10 @@ public class EmojiStegoWebServer {
         headers.set("X-Frame-Options", "DENY");
         headers.set("Referrer-Policy", "no-referrer");
         headers.set("Cache-Control", "no-store");
-        headers.set("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'");
+        headers.set("Content-Security-Policy",
+                "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+                        + "script-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; "
+                        + "base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
         String origin = exchange.getRequestHeaders().getFirst("Origin");
         if (origin != null && isAllowedSameOrigin(exchange, origin)) {
@@ -419,80 +434,13 @@ public class EmojiStegoWebServer {
         return origin.equals("http://" + host) || origin.equals("https://" + host);
     }
 
-    private static String buildSingleSourceHtml() {
-        return """
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="UTF-8" />
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                  <title>StegoGlyph — Unicode-Based Text Steganography and Encoding Tool</title>
-                  <style>
-                    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
-                    textarea, input { width: 100%; box-sizing: border-box; margin: 0.4rem 0 1rem; padding: 0.6rem; }
-                    button { padding: 0.6rem 1.1rem; margin-right: 0.5rem; cursor: pointer; }
-                    .note { font-size: 0.9rem; color: #444; background: #f6f8fa; padding: 0.75rem; border-radius: 6px; }
-                    .status { margin-top: 0.75rem; font-weight: 600; }
-                  </style>
-                </head>
-                <body>
-                  <h1>StegoGlyph</h1>
-                  <p class="note">
-                    Unicode-Based Text Steganography and Encoding Tool. Uses framing markers (U+2062 / U+2063) and
-                    Unicode variation selectors (U+FE00..U+FE0F) with a basic non-cryptographic checksum for accidental-corruption
-                    detection (not encryption or cryptographic authentication). All encoding and decoding run on the Java backend.
-                  </p>
-                  <label for="carrier">Carrier Emoji / Text</label>
-                  <input id="carrier" type="text" value="&#128578;" />
-                  <label for="secret">Secret Message</label>
-                  <textarea id="secret" rows="3" placeholder="Enter message to hide..."></textarea>
-                  <button type="button" onclick="encodeMsg()">Encode via API</button>
-                  <button type="button" onclick="decodeMsg()">Decode via API</button>
-                  <label for="output">Encoded / Decoded Result</label>
-                  <textarea id="output" rows="4" placeholder="Result appears here..."></textarea>
-                  <div id="status" class="status"></div>
-                  <script>
-                    async function encodeMsg() {
-                      const statusEl = document.getElementById('status');
-                      statusEl.textContent = '';
-                      const payload = {
-                        message: document.getElementById('secret').value,
-                        carrier: document.getElementById('carrier').value
-                      };
-                      const res = await fetch('/api/encode', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                      });
-                      const data = await res.json();
-                      if (!res.ok) {
-                        statusEl.textContent = 'Error (' + res.status + '): ' + (data.error || 'Request failed');
-                        return;
-                      }
-                      document.getElementById('output').value = data.encoded;
-                      statusEl.textContent = 'Encoded successfully (' + data.checksumType + ').';
-                    }
-                    async function decodeMsg() {
-                      const statusEl = document.getElementById('status');
-                      statusEl.textContent = '';
-                      const payload = { encoded: document.getElementById('output').value };
-                      const res = await fetch('/api/decode', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                      });
-                      const data = await res.json();
-                      if (!res.ok) {
-                        statusEl.textContent = 'Error (' + res.status + '): ' + (data.error || 'Request failed');
-                        return;
-                      }
-                      document.getElementById('secret').value = data.message;
-                      statusEl.textContent = 'Decoded successfully (' + data.checksumType + ').';
-                    }
-                  </script>
-                </body>
-                </html>
-                """;
+    private byte[] loadWebUi() throws IOException {
+        try (InputStream in = EmojiStegoWebServer.class.getResourceAsStream("/web/index.html")) {
+            if (in == null) {
+                throw new IOException("Web UI resource /web/index.html was not found on the classpath.");
+            }
+            return in.readAllBytes();
+        }
     }
 
     private record RateBucket(long windowStartMs, AtomicInteger count) {}

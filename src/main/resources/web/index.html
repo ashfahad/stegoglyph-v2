@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d19">
+  <meta name="description" content="StegoGlyph is a Unicode-based text steganography studio with Java-powered encoding, decoding and basic error detection.">
+  <title>StegoGlyph — Unicode Steganography Studio</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080d19;
+      --bg-soft: #0c1323;
+      --panel: rgba(17, 27, 47, .88);
+      --panel-2: #121d32;
+      --panel-3: #17243b;
+      --line: rgba(151, 173, 210, .14);
+      --line-strong: rgba(151, 173, 210, .24);
+      --text: #edf3ff;
+      --muted: #91a0bb;
+      --muted-2: #71819f;
+      --green: #b6f36a;
+      --green-strong: #8cdb3f;
+      --green-soft: rgba(182, 243, 106, .12);
+      --violet: #a78bfa;
+      --violet-soft: rgba(167, 139, 250, .13);
+      --cyan: #69d5e8;
+      --danger: #ff8191;
+      --warning: #f5c66b;
+      --radius: 18px;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(ellipse at 8% 8%, rgba(50, 91, 133, .20), transparent 32rem),
+        radial-gradient(ellipse at 88% 16%, rgba(110, 73, 170, .15), transparent 34rem),
+        linear-gradient(145deg, #080d19 0%, #0a1120 52%, #080d19 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--green);
+      outline-offset: 3px;
+    }
+    ::selection { color: #07100a; background: var(--green); }
+
+    .app-shell { min-height: 100vh; display: grid; grid-template-columns: 250px minmax(0, 1fr); }
+    .sidebar {
+      position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
+      padding: 27px 18px 20px; border-right: 1px solid var(--line);
+      background: rgba(8, 13, 25, .72); backdrop-filter: blur(18px); z-index: 5;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 9px 30px; }
+    .brand-mark {
+      width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px;
+      color: #09110a; font-size: 22px; font-weight: 900;
+      background: linear-gradient(145deg, #d4ff91, #8fe34b);
+      box-shadow: 0 7px 28px rgba(167, 235, 92, .2);
+    }
+    .brand-name { margin: 0; font-size: 17px; letter-spacing: -.5px; font-weight: 800; }
+    .brand-caption { margin: 1px 0 0; color: var(--muted-2); font-size: 9px; letter-spacing: 1.65px; font-weight: 800; }
+    .nav-label { padding: 0 11px; margin: 0 0 10px; color: #657490; font-size: 10px; letter-spacing: 1.7px; font-weight: 800; text-transform: uppercase; }
+    .nav-list { display: grid; gap: 7px; }
+    .nav-item {
+      width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 13px;
+      color: #9aa9c3; background: transparent; border: 1px solid transparent; border-radius: 12px;
+      text-align: left; transition: .18s ease;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,.035); }
+    .nav-item.active {
+      color: var(--green); background: linear-gradient(90deg, rgba(182,243,106,.12), rgba(182,243,106,.035));
+      border-color: rgba(182,243,106,.16); box-shadow: inset 3px 0 0 var(--green);
+    }
+    .nav-icon { width: 20px; height: 20px; flex: 0 0 20px; display: grid; place-items: center; }
+    .nav-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item span:last-child { font-size: 13px; font-weight: 650; }
+    .sidebar-spacer { flex: 1; }
+    .sidebar-card { margin: 18px 2px 0; padding: 14px; background: linear-gradient(145deg, rgba(167,139,250,.12), rgba(182,243,106,.045)); border: 1px solid rgba(167,139,250,.16); border-radius: 14px; }
+    .sidebar-card .mini-title { margin: 0 0 5px; color: #d8d1ff; font-size: 11px; font-weight: 800; }
+    .sidebar-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .sidebar-footer { padding: 17px 10px 0; color: #63718a; font-size: 10px; }
+
+    .main { min-width: 0; padding: 0 clamp(20px, 4vw, 58px) 52px; }
+    .topbar { min-height: 77px; display: flex; justify-content: space-between; align-items: center; gap: 15px; border-bottom: 1px solid var(--line); }
+    .breadcrumb { color: var(--muted); font-size: 12px; }
+    .breadcrumb strong { color: #d9e3f4; font-weight: 650; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .server-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px; color: #b6c4da; border: 1px solid var(--line); background: rgba(18,29,50,.72); border-radius: 999px; font-size: 10px; font-weight: 750; letter-spacing: .7px; }
+    .server-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); box-shadow: 0 0 12px currentColor; }
+    .server-pill.online .server-dot { background: var(--green); }
+    .server-pill.offline .server-dot { background: var(--danger); }
+    .top-version { color: #667792; font-size: 10px; letter-spacing: .8px; }
+
+    .page { max-width: 1240px; margin: 0 auto; }
+    .hero { padding: 38px 0 25px; display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 11px; color: var(--green); font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: 1.8px; }
+    .eyebrow-line { width: 23px; height: 1px; background: var(--green); box-shadow: 0 0 8px var(--green); }
+    h1 { margin: 0; max-width: 740px; font-size: clamp(30px, 4vw, 48px); line-height: 1.08; letter-spacing: -2px; font-weight: 820; }
+    .gradient-text { color: var(--green); }
+    .hero-copy { max-width: 660px; margin: 13px 0 0; color: #98a8c2; font-size: 14px; }
+    .hero-copy strong { color: #dce7f9; font-weight: 650; }
+    .hero-chip { flex: 0 0 auto; display: flex; align-items: center; gap: 9px; padding: 10px 13px; color: #c8baff; background: var(--violet-soft); border: 1px solid rgba(167,139,250,.19); border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .hero-chip svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 3px 0 27px; }
+    .stat-card { display: flex; align-items: center; gap: 13px; min-height: 77px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 15px; background: rgba(15,24,42,.65); }
+    .stat-icon { width: 37px; height: 37px; display: grid; place-items: center; color: var(--green); background: var(--green-soft); border-radius: 11px; }
+    .stat-icon.violet { color: var(--violet); background: var(--violet-soft); }
+    .stat-icon.cyan { color: var(--cyan); background: rgba(105,213,232,.11); }
+    .stat-icon svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .stat-value { margin: 0; color: #ecf3ff; font-size: 13px; font-weight: 760; }
+    .stat-label { margin: 2px 0 0; color: var(--muted-2); font-size: 10px; }
+
+    .view { display: none; animation: rise .24s ease; }
+    .view.active { display: block; }
+    @keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 15px; margin: 0 0 15px; }
+    .section-heading h2 { margin: 0; font-size: 19px; letter-spacing: -.45px; }
+    .section-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .step-label { color: var(--muted-2); font-size: 10px; font-weight: 750; letter-spacing: 1.1px; text-transform: uppercase; }
+    .workspace-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 15px; align-items: stretch; }
+    .panel { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(150deg, rgba(19,30,51,.96), rgba(13,21,37,.96)); box-shadow: var(--shadow); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 19px; border-bottom: 1px solid var(--line); }
+    .panel-heading { display: flex; align-items: center; gap: 10px; }
+    .panel-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--green); background: var(--green-soft); border-radius: 10px; }
+    .panel-icon.violet { color: var(--violet); background: var(--violet-soft); }
+    .panel-icon svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .panel-title { margin: 0; font-size: 13px; font-weight: 760; }
+    .panel-subtitle { margin: 2px 0 0; color: var(--muted-2); font-size: 10px; }
+    .panel-body { padding: 19px; }
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+    label { color: #c8d4e8; font-size: 11px; font-weight: 720; }
+    .field-hint { color: #71819d; font-size: 10px; }
+    .text-input, .text-area {
+      width: 100%; color: var(--text); background: #0a1221; border: 1px solid rgba(142,163,198,.2);
+      border-radius: 11px; padding: 12px 13px; transition: border-color .18s, box-shadow .18s;
+    }
+    .text-input { min-height: 44px; }
+    .text-area { min-height: 160px; resize: vertical; line-height: 1.6; font-size: 13px; }
+    .text-area.output-area { min-height: 210px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+    .text-input::placeholder, .text-area::placeholder { color: #596984; }
+    .text-input:focus, .text-area:focus { border-color: rgba(182,243,106,.6); box-shadow: 0 0 0 3px rgba(182,243,106,.075); outline: none; }
+    .carrier-row { display: flex; gap: 9px; align-items: center; }
+    .carrier-row .text-input { flex: 1; }
+    .emoji-presets { display: flex; gap: 6px; }
+    .emoji-preset { width: 35px; height: 35px; padding: 0; color: var(--text); background: #1a2740; border: 1px solid var(--line); border-radius: 9px; font-size: 17px; transition: .16s; }
+    .emoji-preset:hover, .emoji-preset.selected { border-color: rgba(182,243,106,.58); background: var(--green-soft); transform: translateY(-1px); }
+    .field-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 7px; color: var(--muted-2); font-size: 10px; }
+    .field-meta .good { color: var(--green); }
+    .field-meta .warn { color: var(--warning); }
+    .button-row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .btn { min-height: 40px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; padding: 9px 14px; border: 1px solid transparent; border-radius: 10px; font-size: 11px; font-weight: 780; transition: .17s ease; }
+    .btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    .btn-primary { color: #0b1308; background: linear-gradient(135deg, #d1ff90, #9ce34e); box-shadow: 0 7px 22px rgba(165,230,90,.12); }
+    .btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); box-shadow: 0 9px 25px rgba(165,230,90,.19); }
+    .btn-secondary { color: #d7e2f4; background: #1a2740; border-color: var(--line-strong); }
+    .btn-secondary:hover { background: #22324e; border-color: rgba(167,139,250,.4); }
+    .btn-ghost { color: var(--muted); background: transparent; border-color: var(--line); }
+    .btn-ghost:hover { color: var(--text); background: rgba(255,255,255,.04); }
+    .btn:disabled { opacity: .55; cursor: wait; transform: none; }
+    .result-placeholder { min-height: 210px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; color: #73839e; background: rgba(6,12,23,.47); border: 1px dashed rgba(139,159,192,.23); border-radius: 12px; text-align: center; padding: 22px; }
+    .placeholder-icon { width: 46px; height: 46px; display: grid; place-items: center; color: var(--violet); background: var(--violet-soft); border-radius: 15px; }
+    .placeholder-icon svg { width: 23px; height: 23px; stroke: currentColor; fill: none; stroke-width: 1.6; }
+    .result-placeholder strong { color: #c3cee1; font-size: 12px; }
+    .result-placeholder span { max-width: 230px; font-size: 10px; line-height: 1.55; }
+    .result-tools { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 9px; }
+    .result-tools label { color: #c8d4e8; }
+    .format-tag { padding: 4px 7px; color: var(--violet); background: var(--violet-soft); border-radius: 6px; font-size: 9px; font-weight: 800; letter-spacing: .6px; }
+    .status { display: none; align-items: flex-start; gap: 9px; margin-top: 13px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 11px; line-height: 1.5; }
+    .status.show { display: flex; }
+    .status.success { color: #c7f59a; background: rgba(182,243,106,.07); border-color: rgba(182,243,106,.22); }
+    .status.error { color: #ffadb7; background: rgba(255,129,145,.07); border-color: rgba(255,129,145,.22); }
+    .status.info { color: #bcb0ff; background: rgba(167,139,250,.07); border-color: rgba(167,139,250,.22); }
+    .status svg { width: 15px; height: 15px; flex: 0 0 15px; margin-top: 1px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .below-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 15px; margin-top: 15px; }
+    .info-strip { display: flex; align-items: flex-start; gap: 12px; padding: 15px 17px; border: 1px solid rgba(167,139,250,.16); border-radius: 14px; background: linear-gradient(110deg, rgba(167,139,250,.09), rgba(167,139,250,.025)); }
+    .info-strip svg { flex: 0 0 18px; width: 18px; height: 18px; color: var(--violet); stroke: currentColor; fill: none; stroke-width: 1.8; }
+    .info-strip strong { display: block; margin-bottom: 3px; color: #e1d8ff; font-size: 11px; }
+    .info-strip p { margin: 0; color: #9ba8c0; font-size: 10px; line-height: 1.6; }
+    .mini-metric { padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; background: rgba(15,24,42,.65); }
+    .mini-metric strong { display: block; color: var(--green); font-size: 13px; }
+    .mini-metric span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+    .decode-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 15px; }
+    .decode-input { min-height: 235px; }
+    .decode-output { min-height: 235px; }
+    .file-input { display: none; }
+    .upload-label { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); cursor: pointer; font-size: 10px; }
+    .upload-label:hover { color: var(--green); }
+    .upload-label svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+    .about-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; margin-bottom: 16px; }
+    .about-card { padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: rgba(16,26,45,.78); }
+    .about-number { display: inline-grid; place-items: center; width: 29px; height: 29px; margin-bottom: 13px; color: var(--green); background: var(--green-soft); border-radius: 9px; font-size: 11px; font-weight: 850; }
+    .about-card h3 { margin: 0 0 6px; font-size: 13px; }
+    .about-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.7; }
+    .about-panel { margin-bottom: 14px; padding: 21px; border: 1px solid var(--line); border-radius: 16px; background: rgba(16,26,45,.78); }
+    .about-panel h3 { margin: 0 0 9px; font-size: 14px; }
+    .about-panel p { margin: 0 0 10px; color: #9baac3; font-size: 12px; line-height: 1.8; }
+    .about-panel p:last-child { margin-bottom: 0; }
+    .code-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .code-token { padding: 8px 10px; color: #d4e1f6; background: #0b1425; border: 1px solid var(--line); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 10px; }
+    .flow-arrow { color: var(--green); font-size: 13px; }
+    .notice { padding: 16px 18px; border: 1px solid rgba(245,198,107,.22); border-radius: 14px; background: rgba(245,198,107,.065); }
+    .notice strong { display: block; margin-bottom: 5px; color: #f4d18f; font-size: 12px; }
+    .notice p { margin: 0; color: #b9a982; font-size: 11px; line-height: 1.7; }
+    .api-list { display: grid; gap: 9px; margin-top: 12px; }
+    .api-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #0b1425; border: 1px solid var(--line); border-radius: 9px; }
+    .method { min-width: 43px; color: var(--green); font-family: ui-monospace, monospace; font-size: 10px; font-weight: 850; }
+    .endpoint { color: #ccd7e9; font-family: ui-monospace, monospace; font-size: 11px; }
+
+    .footer { display: flex; justify-content: space-between; align-items: center; gap: 15px; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--line); color: #687892; font-size: 10px; }
+    .footer strong { color: #a2b0c7; font-weight: 700; }
+    .footer-note { display: inline-flex; align-items: center; gap: 7px; }
+    .footer-note span { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+    .toast { position: fixed; right: 22px; bottom: 22px; z-index: 20; max-width: min(380px, calc(100vw - 36px)); padding: 12px 15px; color: var(--text); background: #17243a; border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: var(--shadow); font-size: 11px; opacity: 0; transform: translateY(12px); pointer-events: none; transition: .22s ease; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    @media (max-width: 1000px) {
+      .app-shell { grid-template-columns: 215px minmax(0,1fr); }
+      .workspace-grid { grid-template-columns: 1fr; }
+      .text-area.output-area { min-height: 160px; }
+    }
+    @media (max-width: 720px) {
+      .app-shell { display: block; }
+      .sidebar { position: sticky; top: 0; height: auto; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand { padding: 0 3px 9px; }
+      .brand-mark { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; }
+      .brand-name { font-size: 15px; }
+      .brand-caption { font-size: 8px; }
+      .nav-label, .sidebar-card, .sidebar-footer, .sidebar-spacer { display: none; }
+      .nav-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .nav-item { justify-content: center; padding: 9px 7px; gap: 7px; }
+      .nav-item.active { box-shadow: inset 0 -2px 0 var(--green); }
+      .nav-item span:last-child { font-size: 11px; }
+      .main { padding: 0 15px 30px; }
+      .topbar { min-height: 53px; }
+      .top-version { display: none; }
+      .hero { display: block; padding: 28px 0 18px; }
+      h1 { font-size: clamp(29px, 8vw, 39px); letter-spacing: -1.5px; }
+      .hero-copy { font-size: 12px; }
+      .hero-chip { display: inline-flex; margin-top: 15px; }
+      .stats-grid { gap: 7px; margin-bottom: 21px; }
+      .stat-card { display: block; min-height: 0; padding: 10px; }
+      .stat-icon { width: 29px; height: 29px; margin-bottom: 8px; }
+      .stat-value { font-size: 11px; }
+      .stat-label { font-size: 9px; }
+      .below-grid, .decode-layout, .about-grid { grid-template-columns: 1fr; }
+      .section-heading { align-items: flex-start; }
+      .panel-body { padding: 15px; }
+      .panel-head { padding: 14px 15px; }
+      .text-area { min-height: 140px; }
+      .text-area.output-area { min-height: 165px; }
+      .decode-input, .decode-output { min-height: 190px; }
+      .footer { display: block; line-height: 2; }
+      .footer-note { margin-top: 5px; }
+    }
+    @media (max-width: 390px) {
+      .server-pill { padding: 6px 8px; font-size: 9px; }
+      .emoji-presets { gap: 4px; }
+      .emoji-preset { width: 31px; height: 33px; }
+      .button-row .btn { flex: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">S</div>
+        <div>
+          <p class="brand-name">StegoGlyph</p>
+          <p class="brand-caption">UNICODE STUDIO</p>
+        </div>
+      </div>
+
+      <p class="nav-label">Workspace</p>
+      <nav class="nav-list" aria-label="Workspace sections">
+        <button class="nav-item active" type="button" data-view="encode" aria-current="page">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg></span>
+          <span>Encode</span>
+        </button>
+        <button class="nav-item" type="button" data-view="decode">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 5h14"/></svg></span>
+          <span>Decode</span>
+        </button>
+        <button class="nav-item" type="button" data-view="about">
+          <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg></span>
+          <span>About</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-card">
+        <p class="mini-title">A note on privacy</p>
+        <p>StegoGlyph conceals text in Unicode characters. It does not encrypt messages or provide cryptographic authentication.</p>
+      </div>
+      <div class="sidebar-footer">STEGOGLYPH · JAVA BACKEND</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="breadcrumb">Workspace <span aria-hidden="true">/</span> <strong id="breadcrumbCurrent">Encode</strong></div>
+        <div class="topbar-right">
+          <span class="server-pill" id="serverStatus"><span class="server-dot"></span><span id="serverStatusText">Checking service</span></span>
+          <span class="top-version">STUDIO / 2.0</span>
+        </div>
+      </header>
+
+      <div class="page">
+        <section class="hero" aria-labelledby="pageTitle">
+          <div>
+            <div class="eyebrow"><span class="eyebrow-line"></span> Unicode steganography workspace</div>
+            <h1 id="pageTitle">Messages, <span class="gradient-text">out of sight.</span></h1>
+            <p class="hero-copy">Conceal a UTF-8 message in a Unicode payload carried after an emoji or text prefix. Encoding and decoding are performed by the <strong>Java backend</strong>.</p>
+          </div>
+          <div class="hero-chip">
+            <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+            Backend-powered processing
+          </div>
+        </section>
+
+        <section class="stats-grid" aria-label="Application capabilities">
+          <div class="stat-card">
+            <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h16"/><path d="m17 10 3 2-3 2"/></svg></div>
+            <div><p class="stat-value">UTF-8 payloads</p><p class="stat-label">Text encoded as bytes</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon violet"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 4v4M14 10v4M10 16v4"/></svg></div>
+            <div><p class="stat-value">Variation selectors</p><p class="stat-label">Invisible Unicode payload</p></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon cyan"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M3 12h3m12 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg></div>
+            <div><p class="stat-value">Basic error detection</p><p class="stat-label">Checksum verification</p></div>
+          </div>
+        </section>
+
+        <!-- ENCODE VIEW -->
+        <section class="view active" id="view-encode" aria-labelledby="encodeHeading">
+          <div class="section-heading">
+            <div><h2 id="encodeHeading">Create a hidden message</h2><p>Choose a visible carrier, enter your text and generate a Unicode payload.</p></div>
+            <span class="step-label">01 / ENCODE</span>
+          </div>
+
+          <div class="workspace-grid">
+            <article class="panel">
+              <div class="panel-head">
+                <div class="panel-heading">
+                  <div class="panel-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg></div>
+                  <div><p class="panel-title">Message input</p><p class="panel-subtitle">Configure your carrier and payload</p></div>
+                </div>
+                <span class="format-tag">INPUT</span>
+              </div>
+              <div class="panel-body">
+                <div class="field">
+                  <div class="field-row"><label for="carrierInput">Carrier emoji or text</label><span class="field-hint">Up to 16 code points</span></div>
+                  <div class="carrier-row">
+                    <input class="text-input" id="carrierInput" type="text" value="🙂" maxlength="64" autocomplete="off" spellcheck="false" aria-describedby="carrierMeta">
+                    <div class="emoji-presets" aria-label="Carrier presets">
+                      <button class="emoji-preset selected" type="button" data-carrier="🙂" aria-label="Smiling face carrier">🙂</button>
+                      <button class="emoji-preset" type="button" data-carrier="🚀" aria-label="Rocket carrier">🚀</button>
+                      <button class="emoji-preset" type="button" data-carrier="🌙" aria-label="Moon carrier">🌙</button>
+                      <button class="emoji-preset" type="button" data-carrier="🌿" aria-label="Leaf carrier">🌿</button>
+                    </div>
+                  </div>
+                  <div class="field-meta" id="carrierMeta"><span>Visible prefix</span><span id="carrierCount">1 / 16 code points</span></div>
+                </div>
+
+                <div class="field">
+                  <div class="field-row"><label for="secretInput">Secret message</label><span class="field-hint">Up to 4,096 UTF-8 bytes</span></div>
+                  <textarea class="text-area" id="secretInput" maxlength="12000" placeholder="Type the message you want to conceal..." spellcheck="false"></textarea>
+                  <div class="field-meta"><span>Text is sent to the Java API for encoding</span><span id="secretCount">0 / 4096 bytes</span></div>
+                </div>
+
+                <div class="button-row">
+                  <button class="btn btn-primary" id="encodeButton" type="button">
+                    <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/></svg>
+                    Generate payload
+                  </button>
+                  <button class="btn btn-ghost" id="clearEncodeButton" type="button">Clear</button>
+                </div>
+                <div class="status" id="encodeStatus" role="status" aria-live="polite"></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div class="panel-heading">
+                  <div class="panel-icon violet"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m7 9 2 2-2 2m5 0h4"/></svg></div>
+                  <div><p class="panel-title">Encoded output</p><p class="panel-subtitle">Your carrier followed by invisible Unicode data</p></div>
+                </div>
+                <span class="format-tag">OUTPUT</span>
+              </div>
+              <div class="panel-body">
+                <div id="encodeEmpty" class="result-placeholder">
+                  <div class="placeholder-icon"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h5M8 16h8"/></svg></div>
+                  <strong>Your encoded payload will appear here</strong>
+                  <span>Enter a message and select Generate payload to create your Unicode output.</span>
+                </div>
+                <div id="encodeResultWrap" hidden>
+                  <div class="result-tools"><label for="encodedOutput">Generated Unicode payload</label><span class="format-tag">UNICODE</span></div>
+                  <textarea class="text-area output-area" id="encodedOutput" readonly aria-label="Encoded Unicode output"></textarea>
+                  <div class="field-meta"><span>Keep the complete text when sharing</span><span id="encodedCount">0 code points</span></div>
+                  <div class="button-row">
+                    <button class="btn btn-primary" id="copyEncodedButton" type="button"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Copy payload</button>
+                    <button class="btn btn-secondary" id="downloadEncodedButton" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>Download .txt</button>
+                  </div>
+                </div>
+                <div class="status" id="copyStatus" role="status" aria-live="polite"></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="below-grid">
+            <div class="info-strip">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></svg>
+              <div><strong>How encoding works</strong><p>Your message is converted to UTF-8 bytes. Each byte is represented by two Unicode variation selectors, framed by invisible markers and followed by a basic checksum.</p></div>
+            </div>
+            <div class="mini-metric"><strong>Java-powered</strong><span>The browser sends requests to the existing /api/encode endpoint.</span></div>
+          </div>
+        </section>
+
+        <!-- DECODE VIEW -->
+        <section class="view" id="view-decode" aria-labelledby="decodeHeading">
+          <div class="section-heading">
+            <div><h2 id="decodeHeading">Reveal a hidden message</h2><p>Paste a StegoGlyph payload or load a text file to recover its message.</p></div>
+            <span class="step-label">02 / DECODE</span>
+          </div>
+
+          <div class="decode-layout">
+            <article class="panel">
+              <div class="panel-head">
+                <div class="panel-heading">
+                  <div class="panel-icon violet"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><path d="m8 4-4 3 4 3"/></svg></div>
+                  <div><p class="panel-title">Encoded input</p><p class="panel-subtitle">Paste the complete Unicode payload</p></div>
+                </div>
+                <label class="upload-label" for="encodedFile"><svg viewBox="0 0 24 24"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4"/></svg>Import .txt</label>
+                <input class="file-input" id="encodedFile" type="file" accept=".txt,text/plain">
+              </div>
+              <div class="panel-body">
+                <div class="field">
+                  <div class="field-row"><label for="decodeInput">Payload to decode</label><span class="field-hint">Keep invisible characters intact</span></div>
+                  <textarea class="text-area decode-input" id="decodeInput" placeholder="Paste the complete encoded text here..." spellcheck="false"></textarea>
+                  <div class="field-meta"><span>Decoding is performed by the Java backend</span><span id="decodeInputCount">0 characters</span></div>
+                </div>
+                <div class="button-row">
+                  <button class="btn btn-primary" id="decodeButton" type="button"><svg viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 5h14"/></svg>Decode payload</button>
+                  <button class="btn btn-ghost" id="clearDecodeButton" type="button">Clear</button>
+                </div>
+                <div class="status" id="decodeStatus" role="status" aria-live="polite"></div>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div class="panel-heading">
+                  <div class="panel-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h8M8 17h4"/></svg></div>
+                  <div><p class="panel-title">Recovered message</p><p class="panel-subtitle">Decoded UTF-8 text</p></div>
+                </div>
+                <span class="format-tag">PLAIN TEXT</span>
+              </div>
+              <div class="panel-body">
+                <div id="decodeEmpty" class="result-placeholder">
+                  <div class="placeholder-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m8 12 2.5 2.5L16 9"/></svg></div>
+                  <strong>No message decoded yet</strong>
+                  <span>Your recovered text will appear here after a successful decode.</span>
+                </div>
+                <div id="decodeResultWrap" hidden>
+                  <div class="result-tools"><label for="decodedOutput">Recovered message</label><span class="format-tag">DECODED</span></div>
+                  <textarea class="text-area decode-output" id="decodedOutput" readonly aria-label="Recovered message"></textarea>
+                  <div class="button-row">
+                    <button class="btn btn-primary" id="copyDecodedButton" type="button"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>Copy message</button>
+                    <button class="btn btn-secondary" id="downloadDecodedButton" type="button"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>Download .txt</button>
+                  </div>
+                </div>
+                <div class="status" id="decodeResultStatus" role="status" aria-live="polite"></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="below-grid">
+            <div class="info-strip">
+              <svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 4.5 3.3 8.1 8 10 4.7-1.9 8-5.5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+              <div><strong>Integrity check</strong><p>The decoder verifies the embedded checksum before returning the recovered text. A checksum match is not proof of authenticity.</p></div>
+            </div>
+            <div class="mini-metric"><strong>Java API</strong><span>The browser sends requests to the existing /api/decode endpoint.</span></div>
+          </div>
+        </section>
+
+        <!-- ABOUT VIEW -->
+        <section class="view" id="view-about" aria-labelledby="aboutHeading">
+          <div class="section-heading">
+            <div><h2 id="aboutHeading">Inside StegoGlyph</h2><p>A practical look at the Unicode format, processing flow and security boundaries.</p></div>
+            <span class="step-label">03 / ABOUT</span>
+          </div>
+
+          <div class="about-grid">
+            <article class="about-card"><span class="about-number">01</span><h3>Choose a carrier</h3><p>A visible emoji or text prefix is placed before the encoded payload. It provides a carrier appearance, not visual embedding inside the emoji's glyph.</p></article>
+            <article class="about-card"><span class="about-number">02</span><h3>Convert to Unicode</h3><p>The message is converted to UTF-8. Each byte is split into two four-bit values and represented using Unicode variation selectors.</p></article>
+            <article class="about-card"><span class="about-number">03</span><h3>Verify on decode</h3><p>Invisible framing markers identify the payload boundaries. The decoder reconstructs bytes, checks the checksum and strictly decodes UTF-8.</p></article>
+          </div>
+
+          <article class="about-panel">
+            <h3>Payload structure</h3>
+            <p>The current format places a visible carrier prefix before an invisible framed sequence. The message bytes and one checksum byte are represented by variation selectors U+FE00 through U+FE0F.</p>
+            <div class="code-flow" aria-label="Payload structure diagram">
+              <span class="code-token">Carrier prefix</span><span class="flow-arrow">→</span>
+              <span class="code-token">U+2062 start</span><span class="flow-arrow">→</span>
+              <span class="code-token">Message selectors</span><span class="flow-arrow">→</span>
+              <span class="code-token">Checksum</span><span class="flow-arrow">→</span>
+              <span class="code-token">U+2063 end</span>
+            </div>
+          </article>
+
+          <div class="notice" role="note">
+            <strong>Important: steganography is not encryption</strong>
+            <p>StegoGlyph provides visual concealment using Unicode characters and a basic non-cryptographic checksum for accidental-corruption detection. It does not encrypt the message, provide confidentiality or authenticate its sender. Anyone who knows the format can decode it. Do not use it to protect sensitive information.</p>
+          </div>
+
+          <article class="about-panel" style="margin-top:14px">
+            <h3>Compatibility and limitations</h3>
+            <p>Some messaging platforms, editors or text-processing systems may remove, normalize or alter default-ignorable Unicode characters. A payload that works in one application may not survive copy-and-paste through another.</p>
+            <p>The visible carrier is a prefix followed by the hidden Unicode payload. The message is not embedded into the visual shape of the emoji. The checksum detects some accidental changes but is not collision-resistant or cryptographically secure.</p>
+          </article>
+
+          <article class="about-panel">
+            <h3>Java API endpoints</h3>
+            <p>The web interface uses the Java backend as its canonical encoding and decoding implementation.</p>
+            <div class="api-list">
+              <div class="api-row"><span class="method">GET</span><span class="endpoint">/health</span></div>
+              <div class="api-row"><span class="method">POST</span><span class="endpoint">/api/encode</span></div>
+              <div class="api-row"><span class="method">POST</span><span class="endpoint">/api/decode</span></div>
+            </div>
+          </article>
+        </section>
+
+        <footer class="footer">
+          <div><strong>StegoGlyph</strong> · Unicode-based text steganography</div>
+          <div class="footer-note"><span></span> Encoding and decoding run on the Java backend</div>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const $ = (id) => document.getElementById(id);
+      const MAX_SECRET_BYTES = 4096;
+      const encoder = new TextEncoder();
+      let toastTimer;
+
+      function showToast(message) {
+        const toast = $("toast");
+        toast.textContent = message;
+        toast.classList.add("show");
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => toast.classList.remove("show"), 2600);
+      }
+
+      function setStatus(id, message, type = "info") {
+        const element = $(id);
+        element.className = `status show ${type}`;
+        element.textContent = message;
+      }
+
+      function clearStatus(id) {
+        const element = $(id);
+        element.className = "status";
+        element.textContent = "";
+      }
+
+      function setBusy(button, busy, label) {
+        button.disabled = busy;
+        if (busy) {
+          button.dataset.originalHtml = button.innerHTML;
+          button.textContent = label;
+        } else if (button.dataset.originalHtml) {
+          button.innerHTML = button.dataset.originalHtml;
+          delete button.dataset.originalHtml;
+        }
+      }
+
+      async function postJson(path, payload) {
+        let response;
+        try {
+          response = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        } catch (error) {
+          throw new Error("Unable to reach the StegoGlyph service. Check your connection and try again.");
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (error) {
+          throw new Error(`The server returned an unreadable response (HTTP ${response.status}).`);
+        }
+
+        if (!response.ok) {
+          throw new Error(data && typeof data.error === "string" ? data.error : `Request failed (HTTP ${response.status}).`);
+        }
+        return data;
+      }
+
+      function switchView(viewName) {
+        document.querySelectorAll(".nav-item").forEach((button) => {
+          const selected = button.dataset.view === viewName;
+          button.classList.toggle("active", selected);
+          if (selected) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+        document.querySelectorAll(".view").forEach((section) => {
+          section.classList.toggle("active", section.id === `view-${viewName}`);
+        });
+        const label = viewName.charAt(0).toUpperCase() + viewName.slice(1);
+        $("breadcrumbCurrent").textContent = label;
+        document.title = `StegoGlyph — ${label}`;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      document.querySelectorAll(".nav-item").forEach((button) => {
+        button.addEventListener("click", () => switchView(button.dataset.view));
+      });
+
+      function updateCounts() {
+        const secret = $("secretInput").value;
+        const bytes = encoder.encode(secret).length;
+        const count = $("secretCount");
+        count.textContent = `${bytes.toLocaleString()} / ${MAX_SECRET_BYTES.toLocaleString()} bytes`;
+        count.className = bytes > MAX_SECRET_BYTES ? "warn" : "good";
+
+        const carrierPoints = [...$("carrierInput").value].length;
+        $("carrierCount").textContent = `${carrierPoints} / 16 code points`;
+        $("carrierCount").className = carrierPoints > 16 ? "warn" : "";
+      }
+
+      function updateDecodeCount() {
+        $("decodeInputCount").textContent = `${[...$("decodeInput").value].length.toLocaleString()} characters`;
+      }
+
+      $("secretInput").addEventListener("input", updateCounts);
+      $("carrierInput").addEventListener("input", () => {
+        updateCounts();
+        document.querySelectorAll(".emoji-preset").forEach((button) => {
+          button.classList.toggle("selected", button.dataset.carrier === $("carrierInput").value);
+        });
+      });
+      $("decodeInput").addEventListener("input", updateDecodeCount);
+
+      document.querySelectorAll(".emoji-preset").forEach((button) => {
+        button.addEventListener("click", () => {
+          $("carrierInput").value = button.dataset.carrier;
+          document.querySelectorAll(".emoji-preset").forEach((item) => item.classList.toggle("selected", item === button));
+          updateCounts();
+        });
+      });
+
+      $("encodeButton").addEventListener("click", async () => {
+        clearStatus("encodeStatus");
+        clearStatus("copyStatus");
+        const message = $("secretInput").value;
+        const carrier = $("carrierInput").value;
+        const byteLength = encoder.encode(message).length;
+        if (!message) return setStatus("encodeStatus", "Enter a message before generating a payload.", "error");
+        if (!carrier.trim()) return setStatus("encodeStatus", "Enter a carrier emoji or text prefix.", "error");
+        if ([...carrier].length > 16) return setStatus("encodeStatus", "The carrier exceeds the 16-code-point limit.", "error");
+        if (byteLength > MAX_SECRET_BYTES) return setStatus("encodeStatus", "The message exceeds the 4,096-byte UTF-8 limit.", "error");
+
+        const button = $("encodeButton");
+        setBusy(button, true, "Encoding…");
+        try {
+          const data = await postJson("/api/encode", { message, carrier });
+          if (typeof data.encoded !== "string") throw new Error("The server response did not include an encoded payload.");
+          $("encodedOutput").value = data.encoded;
+          $("encodeEmpty").hidden = true;
+          $("encodeResultWrap").hidden = false;
+          $("encodedCount").textContent = `${[...data.encoded].length.toLocaleString()} code points`;
+          setStatus("encodeStatus", `Payload generated. Check: ${data.checksumType || "basic error detection"}.`, "success");
+          showToast("Unicode payload generated successfully.");
+        } catch (error) {
+          setStatus("encodeStatus", error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      $("decodeButton").addEventListener("click", async () => {
+        clearStatus("decodeStatus");
+        clearStatus("decodeResultStatus");
+        const encoded = $("decodeInput").value;
+        if (!encoded) return setStatus("decodeStatus", "Paste or import an encoded payload first.", "error");
+
+        const button = $("decodeButton");
+        setBusy(button, true, "Decoding…");
+        try {
+          const data = await postJson("/api/decode", { encoded });
+          if (typeof data.message !== "string") throw new Error("The server response did not include a decoded message.");
+          $("decodedOutput").value = data.message;
+          $("decodeEmpty").hidden = true;
+          $("decodeResultWrap").hidden = false;
+          setStatus("decodeStatus", `Message recovered. Check: ${data.checksumType || "basic error detection"}.`, "success");
+          setStatus("decodeResultStatus", "The checksum matched. This verifies basic error detection, not sender authenticity.", "info");
+          showToast("Message decoded successfully.");
+        } catch (error) {
+          $("decodedOutput").value = "";
+          $("decodeResultWrap").hidden = true;
+          $("decodeEmpty").hidden = false;
+          setStatus("decodeStatus", error.message, "error");
+        } finally {
+          setBusy(button, false);
+        }
+      });
+
+      async function copyText(value, statusId) {
+        if (!value) {
+          if (statusId) setStatus(statusId, "There is nothing to copy yet.", "error");
+          return;
+        }
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+          } else {
+            const helper = document.createElement("textarea");
+            helper.value = value;
+            helper.style.position = "fixed";
+            helper.style.opacity = "0";
+            document.body.appendChild(helper);
+            helper.select();
+            const copied = document.execCommand("copy");
+            helper.remove();
+            if (!copied) throw new Error("Clipboard access is unavailable.");
+          }
+          if (statusId) setStatus(statusId, "Copied to clipboard.", "success");
+          showToast("Copied to clipboard.");
+        } catch (error) {
+          if (statusId) setStatus(statusId, "Clipboard access was blocked. Select the text and copy it manually.", "error");
+        }
+      }
+
+      function downloadText(filename, value) {
+        if (!value) {
+          showToast("There is nothing to download yet.");
+          return;
+        }
+        const blob = new Blob([value], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = filename;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        URL.revokeObjectURL(url);
+        showToast("Text file downloaded.");
+      }
+
+      $("copyEncodedButton").addEventListener("click", () => copyText($("encodedOutput").value, "copyStatus"));
+      $("downloadEncodedButton").addEventListener("click", () => downloadText("stegoglyph-encoded.txt", $("encodedOutput").value));
+      $("copyDecodedButton").addEventListener("click", () => copyText($("decodedOutput").value, "decodeResultStatus"));
+      $("downloadDecodedButton").addEventListener("click", () => downloadText("stegoglyph-decoded.txt", $("decodedOutput").value));
+
+      $("clearEncodeButton").addEventListener("click", () => {
+        $("secretInput").value = "";
+        $("carrierInput").value = "🙂";
+        $("encodedOutput").value = "";
+        $("encodeEmpty").hidden = false;
+        $("encodeResultWrap").hidden = true;
+        document.querySelectorAll(".emoji-preset").forEach((button) => button.classList.toggle("selected", button.dataset.carrier === "🙂"));
+        clearStatus("encodeStatus");
+        clearStatus("copyStatus");
+        updateCounts();
+      });
+
+      $("clearDecodeButton").addEventListener("click", () => {
+        $("decodeInput").value = "";
+        $("decodedOutput").value = "";
+        $("decodeEmpty").hidden = false;
+        $("decodeResultWrap").hidden = true;
+        clearStatus("decodeStatus");
+        clearStatus("decodeResultStatus");
+        updateDecodeCount();
+      });
+
+      $("encodedFile").addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        if (file.size > 48 * 1024) {
+          setStatus("decodeStatus", "The selected file is too large for the web API request limit.", "error");
+          event.target.value = "";
+          return;
+        }
+        try {
+          $("decodeInput").value = await file.text();
+          updateDecodeCount();
+          clearStatus("decodeStatus");
+          showToast("Text file imported.");
+        } catch (error) {
+          setStatus("decodeStatus", "The selected file could not be read.", "error");
+        }
+        event.target.value = "";
+      });
+
+      async function checkService() {
+        const pill = $("serverStatus");
+        const label = $("serverStatusText");
+        try {
+          const response = await fetch("/health", { method: "GET", cache: "no-store" });
+          const data = await response.json();
+          if (response.ok && data.status === "UP") {
+            pill.classList.add("online");
+            pill.classList.remove("offline");
+            label.textContent = "JAVA API ONLINE";
+          } else {
+            throw new Error("Service unavailable");
+          }
+        } catch (error) {
+          pill.classList.add("offline");
+          pill.classList.remove("online");
+          label.textContent = "SERVICE UNAVAILABLE";
+        }
+      }
+
+      updateCounts();
+      updateDecodeCount();
+      checkService();
+    })();
+  </script>
+</body>
+</html>
